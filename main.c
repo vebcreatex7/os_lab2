@@ -1,0 +1,112 @@
+#include<stdio.h> 
+#include<stdlib.h> 
+#include<unistd.h> 
+#include<sys/types.h> 
+#include<string.h> 
+#include<sys/wait.h> 
+#include<stdbool.h>
+
+// поиск образца в строке
+bool search(char* str1, char* str2, int a, int b)
+{
+	int flag = 0, count = 0;
+	if (a > b) {
+		return false;
+	}
+	for (int i = 0; i < b - a + 1; i++) {
+		if (str1[0] == str2[i]) {
+			count++;
+			for (int j = 0; j < a - 1; j++) {
+				if (str1[j] == str2[i + j]) {
+					flag = 1;
+				} else {
+					flag = 0;
+					break;
+				}
+			} if (flag == 1) {
+				break;
+			}
+		} 
+	}
+	if (flag == 1 && count > 0) {
+		return true;
+	}
+	return false;
+}
+
+int main()
+{
+	int fd1[2], fd2[2], fd3[2];
+	char ans[10];
+	
+	if (pipe(fd1)==-1) 
+    { 
+        perror("pipe error\n");
+        exit(1);
+    } 
+    if (pipe(fd2)==-1) 
+    { 
+        perror("pipe error\n");
+        exit(1);
+    } 
+        if (pipe(fd3)==-1) 
+    { 
+       perror("pipe error\n"); 
+       exit(1);
+    } 
+
+  
+    pid_t p = fork();
+    if (p < 0) {
+    	perror("fork error\n");
+    	exit(1);
+
+    } else if(p > 0) {
+    	char str1[100], str2[100];
+    	int size1, size2;
+    	// считывание образца
+    	size1 = read(0, str1, 100); 
+    	// считывание строки
+    	size2 = read(0, str2, 100); 
+    	close(fd1[0]);
+    	close(fd2[0]);
+    	// передача образца в дочерний процесс
+    	write(fd1[1], str1, size1); 
+    	close(fd1[1]);
+    	// передача строки в дочерний процесс
+    	write(fd2[1], str2, size2); 
+    	close(fd1[1]);
+    	wait(NULL); // ожидание дочернего процесса
+
+
+
+    	int size_ans;
+    	// считывание результата из дочернего процесса
+    	size_ans = read(fd3[0], ans, 10); 
+    	write(1, ans, size_ans); 
+    	
+    } else {
+    	char child_str1[100], child_str2[100];
+    	int c_size1, c_size2;
+    	close(fd1[1]);
+    	close(fd2[1]);
+    	// считывание образаца из родительского процесса
+    	c_size1 = read(fd1[0], child_str1, 100); 
+    	close(fd1[0]);
+    	// считывание строки из родительского процесса
+    	c_size2 = read(fd2[0], child_str2, 100); 
+    	close(fd2[0]);
+
+    	// проверка наличия образаца в строке
+    	if (search(child_str1, child_str2, c_size1, c_size2)) {
+    		strcpy(ans, "Yes\n");
+    		write(fd3[1], ans, 4);
+    		close(fd3[1]);
+    	} else {
+    		strcpy(ans, "No\n");
+    		write(fd3[1], ans, 3);
+    		close(fd3[1]);
+    	}
+    	exit(0);
+    }
+}
